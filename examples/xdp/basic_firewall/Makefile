@@ -25,7 +25,7 @@ clean:
 	rm -f $(EBPF_BINARY)
 
 $(EBPF_BINARY): $(EBPF_SOURCE)
-	$(CLANG) $(CLANG_INCLUDE) -O2 -target bpf -c $^  -o $@
+	$(CLANG) $(CLANG_INCLUDE) -O2 -g -target bpf -c $^  -o $@
 
 $(GO_BINARY): $(GO_SOURCE)
 	$(GOBUILD) -v -o $@

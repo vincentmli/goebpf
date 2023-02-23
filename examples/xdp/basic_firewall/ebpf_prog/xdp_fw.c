@@ -13,6 +13,7 @@
 #include "bpf_helpers.h"
 
 #define MAX_RULES   16
+
 /*
 // Ethernet header
 struct ethhdr {
@@ -87,9 +88,24 @@ int firewall(struct xdp_md *ctx) {
   key.saddr = ip->saddr;
 
   struct tcphdr *tcph = NULL;
-
-
   __u64 *blocked = 0;
+
+  switch (ip->protocol) {
+	  case IPPROTO_TCP:
+		bpf_trace_printk("Matched with protocol %d and sAddr %lu.\n", ip->protocol, ip->saddr);
+		  // Scan TCP header.
+                tcph = (data + sizeof(struct ethhdr) + (ip->ihl * 4));
+
+                // Check TCP header.
+                if (tcph + 1 > (struct tcphdr *)data_end)
+                {
+                    return XDP_DROP;
+                }
+
+		if (tcph->dest == 80) {
+                    return XDP_DROP;
+		}
+  }
 
   // Lookup SRC IP in blacklisted IPs
   if ( !(blocked = bpf_map_lookup_elem(&blacklist, &key)) )
