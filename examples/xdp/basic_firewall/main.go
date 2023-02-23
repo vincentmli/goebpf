@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/dropbox/goebpf"
 )
@@ -42,10 +41,6 @@ func main() {
 	printBpfInfo(bpf)
 
 	// Get eBPF maps
-	matches := bpf.GetMapByName("matches")
-	if matches == nil {
-		fatalError("eBPF map 'matches' not found")
-	}
 	blacklist := bpf.GetMapByName("blacklist")
 	if blacklist == nil {
 		fatalError("eBPF map 'blacklist' not found")
@@ -80,7 +75,7 @@ func main() {
 	if err != nil {
 		fatalError("xdp.Attach(): %v", err)
 	}
-	defer xdp.Detach()
+	//defer xdp.Detach()
 
 	// Add CTRL+C handler
 	ctrlC := make(chan os.Signal, 1)
@@ -90,25 +85,28 @@ func main() {
 	fmt.Println("Press CTRL+C to stop.")
 	fmt.Println()
 
-	// Print stat every second / exit on CTRL+C
-	ticker := time.NewTicker(1 * time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			fmt.Println("IP                 DROPs")
-			for i := 0; i < len(ipList); i++ {
-				value, err := matches.LookupInt(i)
-				if err != nil {
-					fatalError("LookupInt failed: %v", err)
-				}
-				fmt.Printf("%18s    %d\n", ipList[i], value)
+	/*
+
+		// Print stat every second / exit on CTRL+C
+		ticker := time.NewTicker(1 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Println("IP                 DROPs")
+					for i := 0; i < len(ipList); i++ {
+						value, err := matches.LookupInt(i)
+						if err != nil {
+							fatalError("LookupInt failed: %v", err)
+						}
+						fmt.Printf("%18s    %d\n", ipList[i], value)
+					}
+					fmt.Println()
+			case <-ctrlC:
+				fmt.Println("\nDetaching program and exit")
+				return
 			}
-			fmt.Println()
-		case <-ctrlC:
-			fmt.Println("\nDetaching program and exit")
-			return
 		}
-	}
+	*/
 }
 
 func fatalError(format string, args ...interface{}) {

@@ -2,11 +2,18 @@
 // Full license can be found in the LICENSE file.
 
 // Basic XDP firewall (IPv4 blacklisting)
+//
+
+#include <linux/if_ether.h>
+#include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/in.h>
+#include <stddef.h>
 
 #include "bpf_helpers.h"
 
 #define MAX_RULES   16
-
+/*
 // Ethernet header
 struct ethhdr {
   __u8 h_dest[6];
@@ -28,16 +35,7 @@ struct iphdr {
   __u32 saddr;
   __u32 daddr;
 } __attribute__((packed));
-
-
-BPF_MAP_DEF(matches) = {
-    .map_type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(__u64),
-    .max_entries = MAX_RULES,
-};
-BPF_MAP_ADD(matches);
-
+*/
 
 BPF_MAP_DEF(blacklist) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
@@ -46,6 +44,14 @@ BPF_MAP_DEF(blacklist) = {
     .max_entries = MAX_RULES,
 };
 BPF_MAP_ADD(blacklist);
+
+BPF_MAP_DEF(dvbs) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(__u64),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+};
+BPF_MAP_ADD(dvbs);
 
 // XDP program //
 SEC("xdp")
@@ -80,17 +86,16 @@ int firewall(struct xdp_md *ctx) {
   key.prefixlen = 32;
   key.saddr = ip->saddr;
 
+  struct tcphdr *tcph = NULL;
+
+
+  __u64 *blocked = 0;
+
   // Lookup SRC IP in blacklisted IPs
-  __u64 *rule_idx = bpf_map_lookup_elem(&blacklist, &key);
-  if (rule_idx) {
-    // Matched, increase match counter for matched "rule"
-    __u32 index = *(__u32*)rule_idx;  // make verifier happy
-    __u64 *counter = bpf_map_lookup_elem(&matches, &index);
-    if (counter) {
-      (*counter)++;
-    }
-    return XDP_DROP;
-  }
+  if ( !(blocked = bpf_map_lookup_elem(&blacklist, &key)) )
+	  return XDP_DROP;
+  else if ( ! (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
+	  return XDP_DROP;
 
   return XDP_PASS;
 }
