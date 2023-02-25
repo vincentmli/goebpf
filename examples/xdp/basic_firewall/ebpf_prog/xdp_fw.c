@@ -4,13 +4,6 @@
 // Basic XDP firewall (IPv4 blacklisting)
 //
 
-#include <linux/if_ether.h>
-#include <linux/ip.h>
-#include <linux/tcp.h>
-#include <linux/in.h>
-#include <stddef.h>
-#include <bpf/bpf_endian.h>
-
 #include "bpf_helpers.h"
 
 #define MAX_RULES   16
@@ -24,7 +17,7 @@ struct ip4_trie_key {
        __u8 addr[4];
 };
 
-/*
+
 // Ethernet header
 struct ethhdr {
   __u8 h_dest[6];
@@ -46,7 +39,6 @@ struct iphdr {
   __u32 saddr;
   __u32 daddr;
 } __attribute__((packed));
-*/
 
 BPF_MAP_DEF(blacklist) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
@@ -100,25 +92,7 @@ int firewall(struct xdp_md *ctx) {
   key.prefixlen = 32;
   key.saddr = ip->saddr;
 
-  struct tcphdr *tcph = NULL;
   __u64 *blocked = 0;
-
-  switch (ip->protocol) {
-	  case IPPROTO_TCP:
-		  // Scan TCP header.
-                tcph = (data + sizeof(struct ethhdr) + (ip->ihl * 4));
-
-                // Check TCP header.
-                if (tcph + 1 > (struct tcphdr *)data_end)
-                {
-                    return XDP_DROP;
-                }
-
-		if (bpf_ntohs(tcph->dest) == 80) {
-                    return XDP_DROP;
-		}
-  }
-
 
   // Lookup SRC IP in blacklisted IPs
   if ( !(blocked = bpf_map_lookup_elem(&blacklist, &key)) )
