@@ -54,6 +54,7 @@ BPF_MAP_DEF(blacklist) = {
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
     .map_flags = BPF_F_NO_PREALLOC,
+    .persistent_path = "/sys/fs/bpf/blacklist",
 };
 BPF_MAP_ADD(blacklist);
 
