@@ -9,10 +9,20 @@
 #include <linux/tcp.h>
 #include <linux/in.h>
 #include <stddef.h>
+#include <bpf/bpf_endian.h>
 
 #include "bpf_helpers.h"
 
 #define MAX_RULES   16
+
+enum {
+       BPF_F_NO_PREALLOC = (1U << 0),
+};
+
+struct ip4_trie_key {
+       __u32 prefixlen;
+       __u8 addr[4];
+};
 
 /*
 // Ethernet header
@@ -40,17 +50,19 @@ struct iphdr {
 
 BPF_MAP_DEF(blacklist) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
-    .key_size = sizeof(__u64),
+    .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
+    .map_flags = BPF_F_NO_PREALLOC,
 };
 BPF_MAP_ADD(blacklist);
 
 BPF_MAP_DEF(dvbs) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
-    .key_size = sizeof(__u64),
+    .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
+    .map_flags = BPF_F_NO_PREALLOC,
 };
 BPF_MAP_ADD(dvbs);
 
@@ -92,7 +104,6 @@ int firewall(struct xdp_md *ctx) {
 
   switch (ip->protocol) {
 	  case IPPROTO_TCP:
-		bpf_trace_printk("Matched with protocol %d and sAddr %lu.\n", ip->protocol, ip->saddr);
 		  // Scan TCP header.
                 tcph = (data + sizeof(struct ethhdr) + (ip->ihl * 4));
 
@@ -102,10 +113,11 @@ int firewall(struct xdp_md *ctx) {
                     return XDP_DROP;
                 }
 
-		if (tcph->dest == 80) {
+		if (bpf_ntohs(tcph->dest) == 80) {
                     return XDP_DROP;
 		}
   }
+
 
   // Lookup SRC IP in blacklisted IPs
   if ( !(blocked = bpf_map_lookup_elem(&blacklist, &key)) )
