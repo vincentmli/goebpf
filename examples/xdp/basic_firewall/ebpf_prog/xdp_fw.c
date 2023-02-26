@@ -88,6 +88,24 @@ BPF_MAP_DEF(dvbs) = {
 };
 BPF_MAP_ADD(dvbs);
 
+BPF_MAP_DEF(dvbs_cc) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .map_flags = BPF_F_NO_PREALLOC,
+};
+BPF_MAP_ADD(dvbs_cc);
+
+BPF_MAP_DEF(igdvs) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .map_flags = BPF_F_NO_PREALLOC,
+};
+BPF_MAP_ADD(igdvs);
+
 // XDP program //
 SEC("xdp")
 int firewall(struct xdp_md *ctx) {
@@ -139,6 +157,10 @@ int firewall(struct xdp_md *ctx) {
 	if ( !(blocked = bpf_map_lookup_elem(&blacklist, &key)) )
 		return XDP_DROP;
 	else if ( ! (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
+		return XDP_DROP;
+	else if ( ! (blocked = bpf_map_lookup_elem(&dvbs_cc, &key)) )
+		return XDP_DROP;
+	else if ( ! (blocked = bpf_map_lookup_elem(&igdvs, &key)) )
 		return XDP_DROP;
  }
 

@@ -13,11 +13,15 @@ import (
 	"strings"
 
 	"github.com/dropbox/goebpf"
+	"github.com/go-ini/ini"
 )
 
 type ipAddressList []string
 
 var iface = flag.String("iface", "", "Interface to bind XDP program to")
+var file = flag.String("file", "", "Timed internet groups IPs/CIRDs members")
+var group = flag.String("group", "", "Add IPs/CIRDs to specific timed internet group, use together with -drop")
+var attach = flag.Bool("attach", false, "Attach XDP program")
 var elf = flag.String("elf", "ebpf_prog/xdp_fw.elf", "clang/llvm compiled binary file")
 var ipList ipAddressList
 
@@ -27,9 +31,11 @@ func main() {
 	if *iface == "" {
 		fatalError("-iface is required.")
 	}
-	if len(ipList) == 0 {
-		fatalError("at least one IPv4 address to DROP required (-drop)")
-	}
+	/*
+		if len(ipList) == 0 {
+			fatalError("at least one IPv4 address to DROP required (-drop)")
+		}
+	*/
 
 	// Create eBPF system
 	bpf := goebpf.NewDefaultEbpfSystem()
@@ -40,42 +46,91 @@ func main() {
 	}
 	printBpfInfo(bpf)
 
-	// Get eBPF maps
-	blacklist := bpf.GetMapByName("blacklist")
-	if blacklist == nil {
-		fatalError("eBPF map 'blacklist' not found")
-	}
+	// not working yet for temporary group member IPs/CIDRs insertion, may need to open existing
+	// pinned map file under /sys/fs/bpf/group
+	if *group != "" {
+		if len(ipList) == 0 {
+			fatalError("at least one IPv4 address to DROP required (-drop)")
+		}
+		// Get eBPF maps
+		groupMapName := bpf.GetMapByName(*group)
+		if groupMapName == nil {
+			fatalError("%s eBPF map not exist!", groupMapName)
+		}
+		// Populate eBPF map with IPv4 addresses to block
+		fmt.Println("Blacklisting IPv4 addresses...")
+		fmt.Printf("Group map name:%s\n", *group)
+		for index, ip := range ipList {
+			fmt.Printf("%s\n", ip)
+			err := groupMapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
+			if err != nil {
+				fatalError("Unable to Insert into eBPF map: %v", err)
+			}
 
-	// Get XDP program. Name simply matches function from xdp_fw.c:
-	//      int firewall(struct xdp_md *ctx) {
-	xdp := bpf.GetProgramByName("firewall")
-	if xdp == nil {
-		fatalError("Program 'firewall' not found.")
-	}
-
-	// Populate eBPF map with IPv4 addresses to block
-	fmt.Println("Blacklisting IPv4 addresses...")
-	for index, ip := range ipList {
-		fmt.Printf("\t%s\n", ip)
-		err := blacklist.Insert(goebpf.CreateLPMtrieKey(ip), index)
-		if err != nil {
-			fatalError("Unable to Insert into eBPF map: %v", err)
 		}
 	}
-	fmt.Println()
 
-	// Load XDP program into kernel
-	err = xdp.Load()
-	if err != nil {
-		fatalError("xdp.Load(): %v", err)
+	if *file != "" {
+
+		cfg, err := ini.Load("timed_internet.ini")
+		if err != nil {
+			fmt.Printf("Fail to read file: %v", err)
+			os.Exit(1)
+		}
+
+		secNames := cfg.SectionStrings()
+		for _, name := range secNames {
+			if name == "DEFAULT" { //ignore ini DEFAULT
+				continue
+			}
+			fmt.Printf("%s\n", name)
+
+			// Get eBPF maps
+			groupMapName := bpf.GetMapByName(name)
+			if groupMapName == nil {
+				fmt.Printf("Group map not exists%s\n", groupMapName)
+				continue
+			}
+
+			// get slices of timed internet group member ips/cidrs
+			ips := cfg.Section(name).Key("member").Strings(",")
+
+			// Populate eBPF map with IPv4 addresses to block
+			fmt.Println("Blacklisting IPv4 addresses...")
+			for index, ip := range ips {
+				fmt.Printf("%s\n", ip)
+				err := groupMapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
+				if err != nil {
+					fatalError("Unable to Insert into eBPF map: %v", err)
+				}
+
+			}
+		}
+
+		fmt.Println()
 	}
 
-	// Attach to interface
-	err = xdp.Attach(*iface)
-	if err != nil {
-		fatalError("xdp.Attach(): %v", err)
+	if *attach != false {
+		// Get XDP program. Name simply matches function from xdp_fw.c:
+		//      int firewall(struct xdp_md *ctx) {
+		xdp := bpf.GetProgramByName("firewall")
+		if xdp == nil {
+			fatalError("Program 'firewall' not found.")
+		}
+
+		// Load XDP program into kernel
+		err = xdp.Load()
+		if err != nil {
+			fatalError("xdp.Load(): %v", err)
+		}
+
+		// Attach to interface
+		err = xdp.Attach(*iface)
+		if err != nil {
+			fatalError("xdp.Attach(): %v", err)
+		}
+		//defer xdp.Detach()
 	}
-	//defer xdp.Detach()
 
 	// Add CTRL+C handler
 	ctrlC := make(chan os.Signal, 1)
