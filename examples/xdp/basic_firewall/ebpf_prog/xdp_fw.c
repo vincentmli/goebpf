@@ -5,6 +5,7 @@
 //
 
 #include "bpf_helpers.h"
+#include "bpf_endian.h"
 
 #define MAX_RULES   16
 
@@ -39,6 +40,34 @@ struct iphdr {
   __u32 saddr;
   __u32 daddr;
 } __attribute__((packed));
+
+// TCP header
+struct tcphdr {
+  __u16 source;
+  __u16 dest;
+  __u32 seq;
+  __u32 ack_seq;
+  union {
+    struct {
+      // Field order has been converted LittleEndiand -> BigEndian
+      // in order to simplify flag checking (no need to ntohs())
+      __u16 ns : 1,
+      reserved : 3,
+      doff : 4,
+      fin : 1,
+      syn : 1,
+      rst : 1,
+      psh : 1,
+      ack : 1,
+      urg : 1,
+      ece : 1,
+      cwr : 1;
+    };
+  };
+  __u16 window;
+  __u16 check;
+  __u16 urg_ptr;
+};
 
 BPF_MAP_DEF(blacklist) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
@@ -84,6 +113,17 @@ int firewall(struct xdp_md *ctx) {
     return XDP_ABORTED;
   }
 
+    // L4
+  if (ip->protocol != 0x06) {  // IPPROTO_TCP -> 6
+    // Non TCP
+    return XDP_PASS;
+  }
+  data += ip->ihl * 4;
+  struct tcphdr *tcp = data;
+  if (data + sizeof(*tcp) > data_end) {
+    return XDP_ABORTED;
+  }
+
   struct {
     __u32 prefixlen;
     __u32 saddr;
@@ -95,10 +135,12 @@ int firewall(struct xdp_md *ctx) {
   __u64 *blocked = 0;
 
   // Lookup SRC IP in blacklisted IPs
-  if ( !(blocked = bpf_map_lookup_elem(&blacklist, &key)) )
-	  return XDP_DROP;
-  else if ( ! (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
-	  return XDP_DROP;
+  if (tcp->dest == bpf_htons(8080)) { // block port 8080
+	if ( !(blocked = bpf_map_lookup_elem(&blacklist, &key)) )
+		return XDP_DROP;
+	else if ( ! (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
+		return XDP_DROP;
+ }
 
   return XDP_PASS;
 }
