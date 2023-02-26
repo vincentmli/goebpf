@@ -85,6 +85,7 @@ BPF_MAP_DEF(dvbs) = {
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
     .map_flags = BPF_F_NO_PREALLOC,
+    .persistent_path = "/sys/fs/bpf/dvbs",
 };
 BPF_MAP_ADD(dvbs);
 
@@ -94,6 +95,7 @@ BPF_MAP_DEF(dvbs_cc) = {
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
     .map_flags = BPF_F_NO_PREALLOC,
+    .persistent_path = "/sys/fs/bpf/dvbs_cc",
 };
 BPF_MAP_ADD(dvbs_cc);
 
@@ -103,6 +105,7 @@ BPF_MAP_DEF(igdvs) = {
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
     .map_flags = BPF_F_NO_PREALLOC,
+    .persistent_path = "/sys/fs/bpf/igdvs",
 };
 BPF_MAP_ADD(igdvs);
 
