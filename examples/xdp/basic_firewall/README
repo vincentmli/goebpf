@@ -1,0 +1,15 @@
+1 How to build
+
+#make clean; make
+
+2 How to run
+
+Attach to interface and populate the eBPF map from file timed_internet.ini
+
+#./xdp_fw -attach -iface <interface> -file timed_internet.ini
+
+All the groups member IPs/CIRDs will be stored in eBPF map and persist
+
+if only temporarily add groups member IPs/CIDRs that are not saved.
+
+#./xdp_fw -iface <interface> -drop <IPs/CIDRs> -group <group name>
