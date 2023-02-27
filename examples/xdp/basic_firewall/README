@@ -2,14 +2,24 @@
 
 #make clean; make
 
-2 How to run
+2 How to attach XDP firewall program to the network interface
 
 Attach to interface and populate the eBPF map from file timed_internet.ini
+All the groups member IPs/CIRDs will be stored in eBPF map and all the eBPF
+maps are persist and each map file is created under /sys/fs/bpf
 
 #./xdp_fw -attach -iface <interface> -file timed_internet.ini
 
-All the groups member IPs/CIRDs will be stored in eBPF map and persist
+3 How to add all groups (eBPF map) and all member IPs/CIDRs for each group
 
-if only temporarily add groups member IPs/CIDRs that are not saved.
+#./xdp_fw -file timed_internet.ini
 
-#./xdp_fw -iface <interface> -drop <IPs/CIDRs> -group <group name>
+4 How to add all member IPs/CIDRs for specific group (eBPF map)
+
+#./xdp_fw -file timed_internet.ini -group <group>
+
+5 How to temporarily add member IPs/CIDRs for specific group (eBPF map)
+
+#./xdp_fw -drop <IPs/CIDRs> -group <group>
+
+for all group (eBPF maps)  member IPs/CIDRs deleting, add -off argument to 3,4,5
