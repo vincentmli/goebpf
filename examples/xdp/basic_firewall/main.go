@@ -22,6 +22,7 @@ var iface = flag.String("iface", "", "Interface to bind XDP program to")
 var file = flag.String("file", "", "Timed internet groups IPs/CIRDs members")
 var group = flag.String("group", "", "Add IPs/CIRDs to specific timed internet group, use together with -drop")
 var attach = flag.Bool("attach", false, "Attach XDP program")
+var off = flag.Bool("off", false, "Remove group member IPs/CIDRs, use together with -group and -file")
 var elf = flag.String("elf", "ebpf_prog/xdp_fw.elf", "clang/llvm compiled binary file")
 var ipList ipAddressList
 
@@ -31,11 +32,6 @@ func main() {
 	if *iface == "" {
 		fatalError("-iface is required.")
 	}
-	/*
-		if len(ipList) == 0 {
-			fatalError("at least one IPv4 address to DROP required (-drop)")
-		}
-	*/
 
 	// Create eBPF system
 	bpf := goebpf.NewDefaultEbpfSystem()
@@ -46,58 +42,120 @@ func main() {
 	}
 	printBpfInfo(bpf)
 
-	// not working yet for temporary group member IPs/CIDRs insertion, may need to open existing
-	// pinned map file under /sys/fs/bpf/group
-	if *group != "" {
-		if len(ipList) == 0 {
-			fatalError("at least one IPv4 address to DROP required (-drop)")
+	if *off != false {
+		//Group member delete
+
+		if *file == "" && len(ipList) == 0 {
+			fatalError("-off requires -file %s or -drop %s!", *file, len(ipList))
 		}
-		// Get eBPF maps
-		groupMapName := bpf.GetMapByName(*group)
-		if groupMapName == nil {
-			fatalError("%s eBPF map not exist!", groupMapName)
-		}
-		// Populate eBPF map with IPv4 addresses to block
-		fmt.Println("Blacklisting IPv4 addresses...")
-		fmt.Printf("Group map name:%s\n", *group)
-		for index, ip := range ipList {
-			fmt.Printf("%s\n", ip)
-			err := groupMapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
+
+		// Delete specific group members from file or all groups and members from file
+		if *file != "" {
+
+			cfg, err := ini.Load(*file)
 			if err != nil {
-				fatalError("Unable to Insert into eBPF map: %v", err)
+				fmt.Printf("Fail to read file: %v", err)
+				os.Exit(1)
 			}
 
-		}
-	}
+			// Delete specific group members from file
+			if *group != "" {
+				// Get eBPF maps
+				groupMapName := bpf.GetMapByName(*group)
+				if groupMapName == nil {
+					fatalError("Delete group member but eBPF map  %s not exist", *group)
+				}
 
-	if *file != "" {
+				// get slices of timed internet group member ips/cidrs
+				ips := cfg.Section(*group).Key("member").Strings(",")
 
-		cfg, err := ini.Load("timed_internet.ini")
-		if err != nil {
-			fmt.Printf("Fail to read file: %v", err)
-			os.Exit(1)
-		}
+				// Delete eBPF map IPv4 addresses
+				fmt.Println("Deleting IPv4 addresses...")
+				for _, ip := range ips {
+					fmt.Printf("%s\n", ip)
+					err := groupMapName.Delete(goebpf.CreateLPMtrieKey(ip))
+					if err != nil {
+						fatalError("Unable to delete from eBPF map: %v", err)
+					}
 
-		secNames := cfg.SectionStrings()
-		for _, name := range secNames {
-			if name == "DEFAULT" { //ignore ini DEFAULT
-				continue
+				}
+			} else { //Delete all groups and members
+				secNames := cfg.SectionStrings()
+				for _, name := range secNames {
+					if name == "DEFAULT" { //ignore ini DEFAULT
+						continue
+					}
+					fmt.Printf("%s\n", name)
+
+					// Get eBPF maps
+					groupMapName := bpf.GetMapByName(name)
+					if groupMapName == nil {
+						fmt.Printf("Delete group member but eBPF map not exists%s\n", name)
+						continue
+					}
+
+					// get slices of timed internet group member ips/cidrs
+					ips := cfg.Section(name).Key("member").Strings(",")
+
+					// Delete eBPF map with IPv4 addresses
+					fmt.Println("Deleting IPv4 addresses...")
+					for _, ip := range ips {
+						fmt.Printf("%s\n", ip)
+						err := groupMapName.Delete(goebpf.CreateLPMtrieKey(ip))
+						if err != nil {
+							fatalError("Unable to delete from eBPF map: %v", err)
+						}
+
+					}
+				}
+
 			}
-			fmt.Printf("%s\n", name)
-
+		}
+		// Temporarily delete members from specific group from -drop
+		if len(ipList) != 0 {
+			if *group == "" {
+				fatalError("-drop requires -group %s", *group)
+			}
 			// Get eBPF maps
-			groupMapName := bpf.GetMapByName(name)
+			groupMapName := bpf.GetMapByName(*group)
 			if groupMapName == nil {
-				fmt.Printf("Group map not exists%s\n", groupMapName)
-				continue
+				fatalError("%s Delete group member but eBPF map not exist!", *group)
 			}
+			// Delete eBPF map with IPv4 addresses to block
+			fmt.Println("Delete IPv4 addresses...")
+			fmt.Printf("Group map name:%s\n", *group)
+			for _, ip := range ipList {
+				fmt.Printf("%s\n", ip)
+				err := groupMapName.Delete(goebpf.CreateLPMtrieKey(ip))
+				if err != nil {
+					fatalError("Unable to delete from eBPF map: %v", err)
+				}
 
-			// get slices of timed internet group member ips/cidrs
-			ips := cfg.Section(name).Key("member").Strings(",")
+			}
+		}
+	} else {
+		// Group member addtion logic
+
+		if *file == "" && len(ipList) == 0 {
+			fatalError("group member addition  requires -file %s or -drop %s!", *file, len(ipList))
+		}
+
+		// Add temporary specific group member from -drop
+		// -drop <IPs/CIDRs> -group <group>
+		if len(ipList) != 0 {
+			if *group == "" {
+				fatalError("group member addtion -drop requires -group %s", *group)
+			}
+			// Get eBPF maps
+			groupMapName := bpf.GetMapByName(*group)
+			if groupMapName == nil {
+				fatalError("%s eBPF map not exist!", groupMapName)
+			}
 
 			// Populate eBPF map with IPv4 addresses to block
 			fmt.Println("Blacklisting IPv4 addresses...")
-			for index, ip := range ips {
+			fmt.Printf("Group map name:%s\n", *group)
+			for index, ip := range ipList {
 				fmt.Printf("%s\n", ip)
 				err := groupMapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
 				if err != nil {
@@ -107,7 +165,71 @@ func main() {
 			}
 		}
 
-		fmt.Println()
+		// either add specific group member from file or add all groups and  members from file
+		// -file <file> -group <group>
+		// or
+		// -file <file>
+		if *file != "" {
+
+			cfg, err := ini.Load(*file)
+			if err != nil {
+				fmt.Printf("Fail to read file: %v", err)
+				os.Exit(1)
+			}
+
+			if *group != "" { // Add specific group members from file
+				// Get eBPF maps
+				groupMapName := bpf.GetMapByName(*group)
+				if groupMapName == nil {
+					fatalError("%s Add group member but eBPF map not exist!", *group)
+				}
+				// get slices of timed internet group member ips/cidrs
+				ips := cfg.Section(*group).Key("member").Strings(",")
+
+				// Add eBPF map IPv4 addresses
+				fmt.Println("Adding IPv4 addresses...")
+				for index, ip := range ips {
+					fmt.Printf("%s\n", ip)
+					err := groupMapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
+					if err != nil {
+						fatalError("Unable to insert into eBPF map: %v", err)
+					}
+
+				}
+			} else { //Add all groups and all members
+
+				secNames := cfg.SectionStrings()
+				for _, name := range secNames {
+					if name == "DEFAULT" { //ignore ini DEFAULT
+						continue
+					}
+					fmt.Printf("%s\n", name)
+
+					// Get eBPF maps
+					groupMapName := bpf.GetMapByName(name)
+					if groupMapName == nil {
+						fmt.Printf("Add group member but eBPF map not exists%s\n", name)
+						continue
+					}
+
+					// get slices of timed internet group member ips/cidrs
+					ips := cfg.Section(name).Key("member").Strings(",")
+
+					// Populate eBPF map with IPv4 addresses to block
+					fmt.Println("Blacklisting IPv4 addresses...")
+					for index, ip := range ips {
+						fmt.Printf("%s\n", ip)
+						err := groupMapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
+						if err != nil {
+							fatalError("Unable to Insert into eBPF map: %v", err)
+						}
+
+					}
+				}
+			}
+
+			fmt.Println()
+		}
 	}
 
 	if *attach != false {
