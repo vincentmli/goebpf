@@ -29,9 +29,6 @@ var ipList ipAddressList
 func main() {
 	flag.Var(&ipList, "drop", "IPv4 CIDR to DROP traffic from, repeatable")
 	flag.Parse()
-	if *iface == "" {
-		fatalError("-iface is required.")
-	}
 
 	// Create eBPF system
 	bpf := goebpf.NewDefaultEbpfSystem()
@@ -41,6 +38,32 @@ func main() {
 		fatalError("LoadElf() failed: %v", err)
 	}
 	printBpfInfo(bpf)
+
+	//Attach XDP program to interface
+	if *attach != false {
+		if *iface == "" {
+			fatalError("-iface is required.")
+		}
+		// Get XDP program. Name simply matches function from xdp_fw.c:
+		//      int firewall(struct xdp_md *ctx) {
+		xdp := bpf.GetProgramByName("firewall")
+		if xdp == nil {
+			fatalError("Program 'firewall' not found.")
+		}
+
+		// Load XDP program into kernel
+		err = xdp.Load()
+		if err != nil {
+			fatalError("xdp.Load(): %v", err)
+		}
+
+		// Attach to interface
+		err = xdp.Attach(*iface)
+		if err != nil {
+			fatalError("xdp.Attach(): %v", err)
+		}
+		//defer xdp.Detach()
+	}
 
 	if *off != false {
 		//Group member delete
@@ -230,28 +253,6 @@ func main() {
 
 			fmt.Println()
 		}
-	}
-
-	if *attach != false {
-		// Get XDP program. Name simply matches function from xdp_fw.c:
-		//      int firewall(struct xdp_md *ctx) {
-		xdp := bpf.GetProgramByName("firewall")
-		if xdp == nil {
-			fatalError("Program 'firewall' not found.")
-		}
-
-		// Load XDP program into kernel
-		err = xdp.Load()
-		if err != nil {
-			fatalError("xdp.Load(): %v", err)
-		}
-
-		// Attach to interface
-		err = xdp.Attach(*iface)
-		if err != nil {
-			fatalError("xdp.Attach(): %v", err)
-		}
-		//defer xdp.Detach()
 	}
 
 	// Add CTRL+C handler
