@@ -69,6 +69,16 @@ struct tcphdr {
   __u16 urg_ptr;
 };
 
+BPF_MAP_DEF(port_map) = {
+    .map_type = BPF_MAP_TYPE_HASH,
+    .key_size = sizeof(__u16),
+    .value_size = sizeof(__u8),
+    .max_entries = MAX_RULES,
+    .map_flags = BPF_F_NO_PREALLOC,
+    .persistent_path = "/sys/fs/bpf/port_map",
+};
+BPF_MAP_ADD(port_map);
+
 BPF_MAP_DEF(blacklist) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
     .key_size = sizeof(struct ip4_trie_key),
