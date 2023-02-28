@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 
 	"github.com/dropbox/goebpf"
@@ -17,6 +18,7 @@ import (
 )
 
 type ipAddressList []string
+type portList []string
 
 var iface = flag.String("iface", "", "Interface to bind XDP program to")
 var file = flag.String("file", "", "Timed internet groups IPs/CIRDs members")
@@ -25,9 +27,11 @@ var attach = flag.Bool("attach", false, "Attach XDP program")
 var off = flag.Bool("off", false, "Remove group member IPs/CIDRs, use together with -group and -file")
 var elf = flag.String("elf", "ebpf_prog/xdp_fw.elf", "clang/llvm compiled binary file")
 var ipList ipAddressList
+var ports portList
 
 func main() {
 	flag.Var(&ipList, "drop", "IPv4 CIDR to DROP traffic from, repeatable")
+	flag.Var(&ports, "port", "port to DROP traffic to, repeatable")
 	flag.Parse()
 
 	// Create eBPF system
@@ -63,6 +67,28 @@ func main() {
 			fatalError("xdp.Attach(): %v", err)
 		}
 		//defer xdp.Detach()
+	}
+
+	if len(ports) != 0 {
+		// Get eBPF maps
+		portMap := bpf.GetMapByName("port_map")
+		if portMap == nil {
+			fatalError("port_map eBPF map not exist!")
+		}
+		// Add eBPF map ports
+		fmt.Println("Adding port ...")
+		for index, p := range ports {
+			fmt.Printf("%s\n", p)
+			u64, err := strconv.ParseUint(p, 10, 32)
+			if err != nil {
+				fmt.Println(err)
+			}
+			err = portMap.Insert(uint16(u64), index)
+			if err != nil {
+				fatalError("Unable to insert into eBPF port_map: %v", err)
+			}
+
+		}
 	}
 
 	if *off != false {
@@ -330,5 +356,17 @@ func (i *ipAddressList) Set(value string) error {
 	}
 	// Valid, add to the list
 	*i = append(*i, value)
+	return nil
+}
+
+// Implements flag.Value
+func (p *portList) String() string {
+	return fmt.Sprintf("%+v", *p)
+}
+
+// Implements flag.Value
+func (p *portList) Set(value string) error {
+	//add to the list
+	*p = append(*p, value)
 	return nil
 }

@@ -8,6 +8,7 @@
 #include "bpf_endian.h"
 
 #define MAX_RULES   16
+#define NULL 0
 
 enum {
        BPF_F_NO_PREALLOC = (1U << 0),
@@ -163,10 +164,18 @@ int firewall(struct xdp_md *ctx) {
   key.prefixlen = 32;
   key.saddr = ip->saddr;
 
-  __u64 *blocked = 0;
+  __u32 *blocked = NULL;
+  __u8 *port_blocked = NULL;
+
+  __u16 port = bpf_ntohs(tcp->dest);
+
+// if ( bpf_map_lookup_elem(&port_map, &port))
+//               return XDP_DROP;
 
   // Lookup SRC IP in blacklisted IPs
-  if (tcp->dest == bpf_htons(8080)) { // block port 8080
+  //if (tcp->dest == bpf_htons(8080)) { // block port 8080
+  port_blocked = bpf_map_lookup_elem(&port_map, &port);
+  if ( port_blocked ) { // block port
 	if ( !(blocked = bpf_map_lookup_elem(&blacklist, &key)) )
 		return XDP_DROP;
 	else if ( ! (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
