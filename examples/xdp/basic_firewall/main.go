@@ -19,6 +19,7 @@ import (
 type ipAddressList []string
 
 var iface = flag.String("iface", "", "Interface to bind XDP program to")
+var group = flag.String("group", "", "Add IPs/CIRDs to specific timed internet group, use together with -drop")
 var elf = flag.String("elf", "ebpf_prog/xdp_fw.elf", "clang/llvm compiled binary file")
 var ipList ipAddressList
 
@@ -47,14 +48,20 @@ func main() {
 		fatalError("eBPF map 'matches' not found")
 	}
 
-	blacklist := bpf.GetMapByName("blacklist")
-	if blacklist == nil {
-		fatalError("eBPF map 'blacklist' not found")
-	}
-
-	dvbs := bpf.GetMapByName("dvbs")
-	if dvbs == nil {
-		fatalError("eBPF map 'dvbs' not found")
+	if *group != "" {
+		mapName := bpf.GetMapByName(*group)
+		if mapName == nil {
+			fatalError("eBPF map %s not found", *group)
+		}
+		fmt.Println("Blacklisting IPv4 addresses...")
+		for index, ip := range ipList {
+			fmt.Printf("\t%s\n", ip)
+			err := mapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
+			if err != nil {
+				fatalError("Unable to Insert into eBPF map: %v", err)
+			}
+		}
+		fmt.Println()
 	}
 
 	// Get XDP program. Name simply matches function from xdp_fw.c:
@@ -63,29 +70,6 @@ func main() {
 	if xdp == nil {
 		fatalError("Program 'firewall' not found.")
 	}
-
-	// Populate eBPF map with IPv4 addresses to block
-	/*
-		fmt.Println("Blacklisting IPv4 addresses...")
-		for index, ip := range ipList {
-			fmt.Printf("\t%s\n", ip)
-			err := blacklist.Insert(goebpf.CreateLPMtrieKey(ip), index)
-			if err != nil {
-				fatalError("Unable to Insert into eBPF map: %v", err)
-			}
-		}
-		fmt.Println()
-	*/
-
-	fmt.Println("Blacklisting IPv4 addresses...")
-	for index, ip := range ipList {
-		fmt.Printf("\t%s\n", ip)
-		err := dvbs.Insert(goebpf.CreateLPMtrieKey(ip), index)
-		if err != nil {
-			fatalError("Unable to Insert into eBPF map: %v", err)
-		}
-	}
-	fmt.Println()
 
 	// Load XDP program into kernel
 	err = xdp.Load()
