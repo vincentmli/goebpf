@@ -135,14 +135,19 @@ int firewall(struct xdp_md *ctx) {
 
   key.prefixlen = 32;
   key.saddr = ip->saddr;
+  //__u16 port = bpf_ntohs(tcp->dest);
 
-  __u64 *blocked = 0;
+  __u64 *ipDeny = 0;
+  //__u64 *portDeny = 0;
 
   // Lookup SRC IP in denylisted IPs
-  if ( (blocked = bpf_map_lookup_elem(&denylist1, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&denylist2, &key)) )
-	return XDP_DROP;
+  //if ( (portDeny = bpf_map_lookup_elem(&port_map, &port)) ) {
+  if ( tcp->dest == bpf_htons(8080)) {
+	if ( (ipDeny = bpf_map_lookup_elem(&denylist1, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&denylist2, &key)) )
+		return XDP_DROP;
+  }
 
   return XDP_PASS;
 }
