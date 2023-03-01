@@ -35,6 +35,7 @@ BPF_MAP_DEF(matches) = {
     .key_size = sizeof(__u32),
     .value_size = sizeof(__u64),
     .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/matches",
 };
 BPF_MAP_ADD(matches);
 
@@ -44,6 +45,7 @@ BPF_MAP_DEF(blacklist) = {
     .key_size = sizeof(__u64),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/blacklist",
 };
 BPF_MAP_ADD(blacklist);
 
@@ -52,6 +54,7 @@ BPF_MAP_DEF(dvbs) = {
     .key_size = sizeof(__u64),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/dvbs",
 };
 BPF_MAP_ADD(dvbs);
 
