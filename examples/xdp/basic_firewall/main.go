@@ -11,7 +11,6 @@ import (
 	"os"
 	"os/signal"
 	"strings"
-	"time"
 
 	"github.com/dropbox/goebpf"
 )
@@ -82,7 +81,7 @@ func main() {
 	if err != nil {
 		fatalError("xdp.Attach(): %v", err)
 	}
-	defer xdp.Detach()
+	//defer xdp.Detach()
 
 	// Add CTRL+C handler
 	ctrlC := make(chan os.Signal, 1)
@@ -91,26 +90,27 @@ func main() {
 	fmt.Println("XDP program successfully loaded and attached. Counters refreshed every second.")
 	fmt.Println("Press CTRL+C to stop.")
 	fmt.Println()
-
-	// Print stat every second / exit on CTRL+C
-	ticker := time.NewTicker(1 * time.Second)
-	for {
-		select {
-		case <-ticker.C:
-			fmt.Println("IP                 DROPs")
-			for i := 0; i < len(ipList); i++ {
-				value, err := matches.LookupInt(i)
-				if err != nil {
-					fatalError("LookupInt failed: %v", err)
+	/*
+		// Print stat every second / exit on CTRL+C
+		ticker := time.NewTicker(1 * time.Second)
+		for {
+			select {
+			case <-ticker.C:
+				fmt.Println("IP                 DROPs")
+				for i := 0; i < len(ipList); i++ {
+					value, err := matches.LookupInt(i)
+					if err != nil {
+						fatalError("LookupInt failed: %v", err)
+					}
+					fmt.Printf("%18s    %d\n", ipList[i], value)
 				}
-				fmt.Printf("%18s    %d\n", ipList[i], value)
+				fmt.Println()
+			case <-ctrlC:
+				fmt.Println("\nDetaching program and exit")
+				return
 			}
-			fmt.Println()
-		case <-ctrlC:
-			fmt.Println("\nDetaching program and exit")
-			return
 		}
-	}
+	*/
 }
 
 func fatalError(format string, args ...interface{}) {
