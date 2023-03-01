@@ -1,6 +1,6 @@
 # add/remove groups member in sorted order (ipset -s list sort the output)
 
-[dvbs_cc]
+[denylist1]
 member = \
  192.168.8.52, \	
  192.168.10.111, \	 
@@ -14,13 +14,7 @@ member = \
  192.168.10.160/30, \
  192.168.10.164/31,
 
-[igdvs]
+[denylist2]
 member = \
  192.168.9.0/24, \ 
  192.168.10.0/24,
-
-[dvbs]
-member = \
- 192.168.9.0/24, \ 
- 192.168.10.0/24,
-

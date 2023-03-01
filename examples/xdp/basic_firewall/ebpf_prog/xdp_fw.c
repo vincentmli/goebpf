@@ -74,41 +74,23 @@ BPF_MAP_DEF(port_map) = {
 };
 BPF_MAP_ADD(port_map);
 
-BPF_MAP_DEF(blacklist) = {
+BPF_MAP_DEF(denylist1) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
     .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
-    .persistent_path = "/sys/fs/bpf/blacklist",
+    .persistent_path = "/sys/fs/bpf/denylist1",
 };
-BPF_MAP_ADD(blacklist);
+BPF_MAP_ADD(denylist1);
 
-BPF_MAP_DEF(dvbs) = {
+BPF_MAP_DEF(denylist2) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
     .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
-    .persistent_path = "/sys/fs/bpf/dvbs",
+    .persistent_path = "/sys/fs/bpf/denylist2",
 };
-BPF_MAP_ADD(dvbs);
-
-BPF_MAP_DEF(dvbs_cc) = {
-    .map_type = BPF_MAP_TYPE_LPM_TRIE,
-    .key_size = sizeof(struct ip4_trie_key),
-    .value_size = sizeof(__u32),
-    .max_entries = MAX_RULES,
-    .persistent_path = "/sys/fs/bpf/dvbs_cc",
-};
-BPF_MAP_ADD(dvbs_cc);
-
-BPF_MAP_DEF(igdvs) = {
-    .map_type = BPF_MAP_TYPE_LPM_TRIE,
-    .key_size = sizeof(struct ip4_trie_key),
-    .value_size = sizeof(__u32),
-    .max_entries = MAX_RULES,
-    .persistent_path = "/sys/fs/bpf/igdvs",
-};
-BPF_MAP_ADD(igdvs);
+BPF_MAP_ADD(denylist2);
 
 // XDP program //
 SEC("xdp")
@@ -156,14 +138,10 @@ int firewall(struct xdp_md *ctx) {
 
   __u64 *blocked = 0;
 
-  // Lookup SRC IP in blacklisted IPs
-  if ( (blocked = bpf_map_lookup_elem(&blacklist, &key)) )
+  // Lookup SRC IP in denylisted IPs
+  if ( (blocked = bpf_map_lookup_elem(&denylist1, &key)) )
 	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs_cc, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&igdvs, &key)) )
+  else if ( (blocked = bpf_map_lookup_elem(&denylist2, &key)) )
 	return XDP_DROP;
 
   return XDP_PASS;
