@@ -74,6 +74,24 @@ BPF_MAP_DEF(port_map) = {
 };
 BPF_MAP_ADD(port_map);
 
+BPF_MAP_DEF(denylist1) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/denylist1",
+};
+BPF_MAP_ADD(denylist1);
+
+BPF_MAP_DEF(denylist2) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/denylist2",
+};
+BPF_MAP_ADD(denylist2);
+
 BPF_MAP_DEF(home_phones) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
     .key_size = sizeof(struct ip4_trie_key),
@@ -235,35 +253,41 @@ int firewall(struct xdp_md *ctx) {
   key.prefixlen = 32;
   key.saddr = ip->saddr;
 
-  __u64 *blocked = 0;
+  //port_map key stored in host order, convert tcp port to host order
+  __u16 port = bpf_ntohs(tcp->dest);
 
-  // Lookup SRC IP in Denylisted IPs
-  if ( (blocked = bpf_map_lookup_elem(&home_phones, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs_cc, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&igdvs, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs_laptops, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs_s_laptops, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvgs_laptops, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs_o_gmail, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvgs, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&temp_ip_net, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&home_pcs, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvgs_cslab, &key)) )
-	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs_yearbook, &key)) )
-	return XDP_DROP;
+  __u64 *ipDeny = 0;
+  __u64 *portDeny = 0;
+
+  // Lookup TCP PORT and SRC IP in denylisted port and IPs
+  if ( (portDeny = bpf_map_lookup_elem(&port_map, &port)) ) {
+	if ( (ipDeny = bpf_map_lookup_elem(&home_phones, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_cc, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&igdvs, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_laptops, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_s_laptops, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvgs_laptops, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_o_gmail, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvgs, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&temp_ip_net, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&home_pcs, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvgs_cslab, &key)) )
+		return XDP_DROP;
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_yearbook, &key)) )
+		return XDP_DROP;
+  }
 
   return XDP_PASS;
 }

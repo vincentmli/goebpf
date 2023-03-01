@@ -202,7 +202,7 @@ func main() {
 			}
 
 			// Populate eBPF map with IPv4 addresses to block
-			fmt.Println("Blacklisting IPv4 addresses...")
+			fmt.Println("Denylisting IPv4 addresses...")
 			fmt.Printf("Group map name:%s\n", *group)
 			for index, ip := range ipList {
 				fmt.Printf("%s\n", ip)
@@ -265,7 +265,7 @@ func main() {
 					ips := cfg.Section(name).Key("member").Strings(",")
 
 					// Populate eBPF map with IPv4 addresses to block
-					fmt.Println("Blacklisting IPv4 addresses...")
+					fmt.Println("Denylisting IPv4 addresses...")
 					for index, ip := range ips {
 						fmt.Printf("%s\n", ip)
 						err := groupMapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
