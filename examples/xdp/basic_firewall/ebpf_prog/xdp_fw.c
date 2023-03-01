@@ -74,14 +74,95 @@ BPF_MAP_DEF(port_map) = {
 };
 BPF_MAP_ADD(port_map);
 
-BPF_MAP_DEF(blacklist) = {
+BPF_MAP_DEF(home_phones) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
     .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
-    .persistent_path = "/sys/fs/bpf/blacklist",
+    .persistent_path = "/sys/fs/bpf/home_phones",
 };
-BPF_MAP_ADD(blacklist);
+BPF_MAP_ADD(home_phones);
+
+BPF_MAP_DEF(dvbs_laptops) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/dvbs_laptops",
+};
+BPF_MAP_ADD(dvbs_laptops);
+
+BPF_MAP_DEF(dvbs_student_laptops) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/dvbs_student_laptops",
+};
+BPF_MAP_ADD(dvbs_student_laptops);
+
+BPF_MAP_DEF(dvgs_laptops) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/dvgs_laptops",
+};
+BPF_MAP_ADD(dvgs_laptops);
+
+BPF_MAP_DEF(dvbs_office_gmail) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/dvbs_office_gmail",
+};
+BPF_MAP_ADD(dvbs_office_gmail);
+
+BPF_MAP_DEF(dvgs) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/dvgs",
+};
+BPF_MAP_ADD(dvgs);
+
+BPF_MAP_DEF(temp_ip_net) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/temp_ip_net",
+};
+BPF_MAP_ADD(temp_ip_net);
+
+BPF_MAP_DEF(dvgs_cslab) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/dvgs_cslab",
+};
+BPF_MAP_ADD(dvgs_cslab);
+
+BPF_MAP_DEF(dvbs_yearbook) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/dvbs_yearbook",
+};
+BPF_MAP_ADD(dvbs_yearbook);
+
+BPF_MAP_DEF(home_pcs) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(struct ip4_trie_key),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+    .persistent_path = "/sys/fs/bpf/home_pcs",
+};
+BPF_MAP_ADD(home_pcs);
 
 BPF_MAP_DEF(dvbs) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
@@ -156,14 +237,32 @@ int firewall(struct xdp_md *ctx) {
 
   __u64 *blocked = 0;
 
-  // Lookup SRC IP in blacklisted IPs
-  if ( (blocked = bpf_map_lookup_elem(&blacklist, &key)) )
+  // Lookup SRC IP in Denylisted IPs
+  if ( (blocked = bpf_map_lookup_elem(&home_phones, &key)) )
 	return XDP_DROP;
   else if ( (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
 	return XDP_DROP;
   else if ( (blocked = bpf_map_lookup_elem(&dvbs_cc, &key)) )
 	return XDP_DROP;
   else if ( (blocked = bpf_map_lookup_elem(&igdvs, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&dvbs_laptops, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&dvbs_student_laptops, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&dvgs_laptops, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&dvbs_office_gmail, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&dvgs, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&temp_ip_net, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&home_pcs, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&dvgs_cslab, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&dvbs_yearbook, &key)) )
 	return XDP_DROP;
 
   return XDP_PASS;
