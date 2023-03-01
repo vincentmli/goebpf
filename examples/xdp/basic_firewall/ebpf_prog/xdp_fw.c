@@ -92,14 +92,14 @@ BPF_MAP_DEF(dvbs_laptops) = {
 };
 BPF_MAP_ADD(dvbs_laptops);
 
-BPF_MAP_DEF(dvbs_student_laptops) = {
+BPF_MAP_DEF(dvbs_s_laptops) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
     .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
-    .persistent_path = "/sys/fs/bpf/dvbs_student_laptops",
+    .persistent_path = "/sys/fs/bpf/dvbs_s_laptops",
 };
-BPF_MAP_ADD(dvbs_student_laptops);
+BPF_MAP_ADD(dvbs_s_laptops);
 
 BPF_MAP_DEF(dvgs_laptops) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
@@ -110,14 +110,14 @@ BPF_MAP_DEF(dvgs_laptops) = {
 };
 BPF_MAP_ADD(dvgs_laptops);
 
-BPF_MAP_DEF(dvbs_office_gmail) = {
+BPF_MAP_DEF(dvbs_o_gmail) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
     .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
-    .persistent_path = "/sys/fs/bpf/dvbs_office_gmail",
+    .persistent_path = "/sys/fs/bpf/dvbs_o_gmail",
 };
-BPF_MAP_ADD(dvbs_office_gmail);
+BPF_MAP_ADD(dvbs_o_gmail);
 
 BPF_MAP_DEF(dvgs) = {
     .map_type = BPF_MAP_TYPE_LPM_TRIE,
@@ -248,11 +248,11 @@ int firewall(struct xdp_md *ctx) {
 	return XDP_DROP;
   else if ( (blocked = bpf_map_lookup_elem(&dvbs_laptops, &key)) )
 	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs_student_laptops, &key)) )
+  else if ( (blocked = bpf_map_lookup_elem(&dvbs_s_laptops, &key)) )
 	return XDP_DROP;
   else if ( (blocked = bpf_map_lookup_elem(&dvgs_laptops, &key)) )
 	return XDP_DROP;
-  else if ( (blocked = bpf_map_lookup_elem(&dvbs_office_gmail, &key)) )
+  else if ( (blocked = bpf_map_lookup_elem(&dvbs_o_gmail, &key)) )
 	return XDP_DROP;
   else if ( (blocked = bpf_map_lookup_elem(&dvgs, &key)) )
 	return XDP_DROP;
