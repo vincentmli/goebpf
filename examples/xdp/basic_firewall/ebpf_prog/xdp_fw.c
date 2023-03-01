@@ -47,6 +47,14 @@ BPF_MAP_DEF(blacklist) = {
 };
 BPF_MAP_ADD(blacklist);
 
+BPF_MAP_DEF(dvbs) = {
+    .map_type = BPF_MAP_TYPE_LPM_TRIE,
+    .key_size = sizeof(__u64),
+    .value_size = sizeof(__u32),
+    .max_entries = MAX_RULES,
+};
+BPF_MAP_ADD(dvbs);
+
 // XDP program //
 SEC("xdp")
 int firewall(struct xdp_md *ctx) {
@@ -80,16 +88,26 @@ int firewall(struct xdp_md *ctx) {
   key.prefixlen = 32;
   key.saddr = ip->saddr;
 
+  __u64 *rule_idx = 0;
+
   // Lookup SRC IP in blacklisted IPs
-  __u64 *rule_idx = bpf_map_lookup_elem(&blacklist, &key);
-  if (rule_idx) {
+  //__u64 *rule_idx = bpf_map_lookup_elem(&blacklist, &key);
+  if ((rule_idx = bpf_map_lookup_elem(&blacklist, &key))) {
+  //if (rule_idx) {
     // Matched, increase match counter for matched "rule"
-    __u32 index = *(__u32*)rule_idx;  // make verifier happy
-    __u64 *counter = bpf_map_lookup_elem(&matches, &index);
-    if (counter) {
-      (*counter)++;
-    }
-    return XDP_DROP;
+	__u32 index = *(__u32*)rule_idx;  // make verifier happy
+	__u64 *counter = bpf_map_lookup_elem(&matches, &index);
+	if (counter) {
+		(*counter)++;
+	}
+	return XDP_DROP;
+  } else if ((rule_idx = bpf_map_lookup_elem(&dvbs, &key))) {
+	__u32 index = *(__u32*)rule_idx;  // make verifier happy
+	__u64 *counter = bpf_map_lookup_elem(&matches, &index);
+	if (counter) {
+		(*counter)++;
+	}
+	return XDP_DROP;
   }
 
   return XDP_PASS;

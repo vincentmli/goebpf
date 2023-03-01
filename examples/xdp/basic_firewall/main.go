@@ -46,9 +46,15 @@ func main() {
 	if matches == nil {
 		fatalError("eBPF map 'matches' not found")
 	}
+
 	blacklist := bpf.GetMapByName("blacklist")
 	if blacklist == nil {
 		fatalError("eBPF map 'blacklist' not found")
+	}
+
+	dvbs := bpf.GetMapByName("dvbs")
+	if dvbs == nil {
+		fatalError("eBPF map 'dvbs' not found")
 	}
 
 	// Get XDP program. Name simply matches function from xdp_fw.c:
@@ -59,10 +65,22 @@ func main() {
 	}
 
 	// Populate eBPF map with IPv4 addresses to block
+	/*
+		fmt.Println("Blacklisting IPv4 addresses...")
+		for index, ip := range ipList {
+			fmt.Printf("\t%s\n", ip)
+			err := blacklist.Insert(goebpf.CreateLPMtrieKey(ip), index)
+			if err != nil {
+				fatalError("Unable to Insert into eBPF map: %v", err)
+			}
+		}
+		fmt.Println()
+	*/
+
 	fmt.Println("Blacklisting IPv4 addresses...")
 	for index, ip := range ipList {
 		fmt.Printf("\t%s\n", ip)
-		err := blacklist.Insert(goebpf.CreateLPMtrieKey(ip), index)
+		err := dvbs.Insert(goebpf.CreateLPMtrieKey(ip), index)
 		if err != nil {
 			fatalError("Unable to Insert into eBPF map: %v", err)
 		}
