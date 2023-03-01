@@ -7,12 +7,7 @@
 #include "bpf_helpers.h"
 #include "bpf_endian.h"
 
-#define MAX_RULES   16
-#define NULL 0
-
-enum {
-       BPF_F_NO_PREALLOC = (1U << 0),
-};
+#define MAX_RULES  1024
 
 struct ip4_trie_key {
        __u32 prefixlen;
@@ -75,7 +70,6 @@ BPF_MAP_DEF(port_map) = {
     .key_size = sizeof(__u16),
     .value_size = sizeof(__u8),
     .max_entries = MAX_RULES,
-    .map_flags = BPF_F_NO_PREALLOC,
     .persistent_path = "/sys/fs/bpf/port_map",
 };
 BPF_MAP_ADD(port_map);
@@ -85,7 +79,6 @@ BPF_MAP_DEF(blacklist) = {
     .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
-    .map_flags = BPF_F_NO_PREALLOC,
     .persistent_path = "/sys/fs/bpf/blacklist",
 };
 BPF_MAP_ADD(blacklist);
@@ -95,7 +88,6 @@ BPF_MAP_DEF(dvbs) = {
     .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
-    .map_flags = BPF_F_NO_PREALLOC,
     .persistent_path = "/sys/fs/bpf/dvbs",
 };
 BPF_MAP_ADD(dvbs);
@@ -105,7 +97,6 @@ BPF_MAP_DEF(dvbs_cc) = {
     .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
-    .map_flags = BPF_F_NO_PREALLOC,
     .persistent_path = "/sys/fs/bpf/dvbs_cc",
 };
 BPF_MAP_ADD(dvbs_cc);
@@ -115,7 +106,6 @@ BPF_MAP_DEF(igdvs) = {
     .key_size = sizeof(struct ip4_trie_key),
     .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
-    .map_flags = BPF_F_NO_PREALLOC,
     .persistent_path = "/sys/fs/bpf/igdvs",
 };
 BPF_MAP_ADD(igdvs);
@@ -164,27 +154,17 @@ int firewall(struct xdp_md *ctx) {
   key.prefixlen = 32;
   key.saddr = ip->saddr;
 
-  __u32 *blocked = NULL;
-  __u8 *port_blocked = NULL;
-
-  __u16 port = bpf_ntohs(tcp->dest);
-
-// if ( bpf_map_lookup_elem(&port_map, &port))
-//               return XDP_DROP;
+  __u64 *blocked = 0;
 
   // Lookup SRC IP in blacklisted IPs
-  //if (tcp->dest == bpf_htons(8080)) { // block port 8080
-  port_blocked = bpf_map_lookup_elem(&port_map, &port);
-  if ( port_blocked ) { // block port
-	if ( !(blocked = bpf_map_lookup_elem(&blacklist, &key)) )
-		return XDP_DROP;
-	else if ( ! (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
-		return XDP_DROP;
-	else if ( ! (blocked = bpf_map_lookup_elem(&dvbs_cc, &key)) )
-		return XDP_DROP;
-	else if ( ! (blocked = bpf_map_lookup_elem(&igdvs, &key)) )
-		return XDP_DROP;
- }
+  if ( (blocked = bpf_map_lookup_elem(&blacklist, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&dvbs, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&dvbs_cc, &key)) )
+	return XDP_DROP;
+  else if ( (blocked = bpf_map_lookup_elem(&igdvs, &key)) )
+	return XDP_DROP;
 
   return XDP_PASS;
 }
