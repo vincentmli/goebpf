@@ -70,6 +70,7 @@ func main() {
 		if err != nil {
 			fatalError("xdp.Attach(): %v", err)
 		}
+		fmt.Println("XDP program successfully loaded and attached")
 		//defer xdp.Detach()
 	}
 
@@ -124,12 +125,12 @@ func main() {
 				ips := cfg.Section(*group).Key("member").Strings(",")
 
 				// Delete eBPF map IPv4 addresses
-				fmt.Println("Deleting IPv4 addresses...")
+				fmt.Printf("Deleting IPv4 addresses from %s...\n", *group)
 				for _, ip := range ips {
 					fmt.Printf("%s\n", ip)
 					err := groupMapName.Delete(goebpf.CreateLPMtrieKey(ip))
 					if err != nil {
-						fatalError("Unable to delete from eBPF map: %v", err)
+						fatalError("Unable to delete %s from eBPF map %s: %v", ip, *group, err)
 					}
 
 				}
@@ -291,8 +292,8 @@ func main() {
 	signal.Notify(ctrlC, os.Interrupt)
 
 	fmt.Println("XDP program successfully loaded and attached. Counters refreshed every second.")
-	fmt.Println("Press CTRL+C to stop.")
-	fmt.Println()
+	//fmt.Println("Press CTRL+C to stop.")
+	//fmt.Println()
 
 	/*
 
