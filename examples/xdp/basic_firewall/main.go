@@ -17,6 +17,10 @@ import (
 	"github.com/go-ini/ini"
 )
 
+const (
+	bpfPath = "/sys/fs/bpf/"
+)
+
 type ipAddressList []string
 type portList []string
 
@@ -109,10 +113,11 @@ func main() {
 
 			// Delete specific group members from file
 			if *group != "" {
-				// Get eBPF maps
-				groupMapName := bpf.GetMapByName(*group)
-				if groupMapName == nil {
-					fatalError("Delete group member but eBPF map  %s not exist", *group)
+				// Create map structure from already existing map in kernel by its path
+				path := bpfPath + *group
+				groupMapName, err := goebpf.NewMapFromExistingMapByPath(path)
+				if err != nil {
+					fatalError("Delete group member but eBPF map  %s not exist", groupMapName)
 				}
 
 				// get slices of timed internet group member ips/cidrs
