@@ -257,7 +257,7 @@ func main() {
 					// Get eBPF maps
 					groupMapName := bpf.GetMapByName(name)
 					if groupMapName == nil {
-						fmt.Printf("Add group member but eBPF map not exists%s\n", name)
+						fmt.Printf("Add group member but eBPF map not exists %s\n", name)
 						continue
 					}
 
