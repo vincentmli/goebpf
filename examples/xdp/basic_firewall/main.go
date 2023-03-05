@@ -127,11 +127,17 @@ func main() {
 				// Delete eBPF map IPv4 addresses
 				fmt.Printf("Deleting IPv4 addresses from %s...\n", *group)
 				for _, ip := range ips {
+					// Do not delete group member from timed_internet.ini if -drop specfied
+					if len(ipList) != 0 {
+						continue
+					}
 					fmt.Printf("%s\n", ip)
 					err := groupMapName.Delete(goebpf.CreateLPMtrieKey(ip))
 					if err != nil {
-						fatalError("Unable to delete %s from eBPF map %s: %v", ip, *group, err)
+						//	fatalError("Unable to delete %s from eBPF map %s: %v", ip, *group, err)
+						fmt.Printf("Unable to delete %s from eBPF map %s: %v\n", ip, *group, err)
 					}
+					continue
 
 				}
 			} else { //Delete all groups and members
@@ -158,16 +164,16 @@ func main() {
 						fmt.Printf("%s\n", ip)
 						err := groupMapName.Delete(goebpf.CreateLPMtrieKey(ip))
 						if err != nil {
-							fatalError("Unable to delete from eBPF map: %v", err)
+							//fatalError("Unable to delete from eBPF map: %v", err)
+							fmt.Printf("Unable to delete %s from eBPF map %s: %v\n", ip, name, err)
 						}
-
+						continue
 					}
 				}
 
 			}
 		}
-		// Temporarily delete members from specific group from -drop
-		if len(ipList) != 0 {
+		if len(ipList) != 0 { // Temporarily delete members from specific group from -drop
 			if *group == "" {
 				fatalError("-drop requires -group %s", *group)
 			}
@@ -183,9 +189,10 @@ func main() {
 				fmt.Printf("%s\n", ip)
 				err := groupMapName.Delete(goebpf.CreateLPMtrieKey(ip))
 				if err != nil {
-					fatalError("Unable to delete from eBPF map: %v", err)
+					//fatalError("Unable to delete from eBPF map: %v", err)
+					fmt.Printf("Unable to delete %s from eBPF map %s: %v\n", ip, *group, err)
 				}
-
+				continue
 			}
 		}
 	} else {
