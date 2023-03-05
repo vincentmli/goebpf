@@ -24,12 +24,12 @@ const (
 type ipAddressList []string
 type portList []string
 
-var iface = flag.String("iface", "", "Interface to bind XDP program to")
-var file = flag.String("file", "", "Timed internet groups IPs/CIRDs members")
+var iface = flag.String("iface", "lan", "Interface to bind XDP program to")
+var file = flag.String("file", "/etc/firehol/timed_internet.ini", "Timed internet groups IPs/CIRDs members")
 var group = flag.String("group", "", "Add IPs/CIRDs to specific timed internet group, use together with -drop")
 var attach = flag.Bool("attach", false, "Attach XDP program")
 var off = flag.Bool("off", false, "Remove group member IPs/CIDRs, use together with -group and -file")
-var elf = flag.String("elf", "ebpf_prog/xdp_fw.elf", "clang/llvm compiled binary file")
+var elf = flag.String("elf", "/etc/firehol/xdp_fw.elf", "clang/llvm compiled binary file")
 var ipList ipAddressList
 var ports portList
 
