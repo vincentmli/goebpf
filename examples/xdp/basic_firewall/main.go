@@ -9,12 +9,15 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
 
 	"github.com/dropbox/goebpf"
 	"github.com/go-ini/ini"
+)
+
+const (
+	bpfPath = "/sys/fs/bpf/"
 )
 
 type ipAddressList []string
@@ -67,6 +70,7 @@ func main() {
 			fatalError("xdp.Attach(): %v", err)
 		}
 		//defer xdp.Detach()
+		fmt.Println("XDP program successfully loaded and attached. Counters refreshed every second.")
 	}
 
 	if len(ports) != 0 {
@@ -109,10 +113,11 @@ func main() {
 
 			// Delete specific group members from file
 			if *group != "" {
-				// Get eBPF maps
-				groupMapName := bpf.GetMapByName(*group)
-				if groupMapName == nil {
-					fatalError("Delete group member but eBPF map  %s not exist", *group)
+				// Create map structure from already existing map in kernel by its path
+				path := bpfPath + *group
+				groupMapName, err := goebpf.NewMapFromExistingMapByPath(path)
+				if err != nil {
+					fatalError("Delete group member but eBPF map  %s not exist", groupMapName)
 				}
 
 				// get slices of timed internet group member ips/cidrs
@@ -136,10 +141,10 @@ func main() {
 					}
 					fmt.Printf("%s\n", name)
 
-					// Get eBPF maps
-					groupMapName := bpf.GetMapByName(name)
-					if groupMapName == nil {
-						fmt.Printf("Delete group member but eBPF map not exists%s\n", name)
+					path := bpfPath + name
+					groupMapName, err := goebpf.NewMapFromExistingMapByPath(path)
+					if err != nil {
+						fmt.Printf("Delete group member but eBPF map %s not exists\n", name)
 						continue
 					}
 
@@ -152,7 +157,7 @@ func main() {
 						fmt.Printf("%s\n", ip)
 						err := groupMapName.Delete(goebpf.CreateLPMtrieKey(ip))
 						if err != nil {
-							fatalError("Unable to delete from eBPF map: %v", err)
+							fatalError("Unable to delete %s from eBPF map %s: %v", ip, name, err)
 						}
 
 					}
@@ -165,11 +170,13 @@ func main() {
 			if *group == "" {
 				fatalError("-drop requires -group %s", *group)
 			}
-			// Get eBPF maps
-			groupMapName := bpf.GetMapByName(*group)
-			if groupMapName == nil {
-				fatalError("%s Delete group member but eBPF map not exist!", *group)
+
+			path := bpfPath + *group
+			groupMapName, err := goebpf.NewMapFromExistingMapByPath(path)
+			if err != nil {
+				fatalError("Delete group member but eBPF map  %s not exist", *group)
 			}
+
 			// Delete eBPF map with IPv4 addresses to block
 			fmt.Println("Delete IPv4 addresses...")
 			fmt.Printf("Group map name:%s\n", *group)
@@ -177,7 +184,7 @@ func main() {
 				fmt.Printf("%s\n", ip)
 				err := groupMapName.Delete(goebpf.CreateLPMtrieKey(ip))
 				if err != nil {
-					fatalError("Unable to delete from eBPF map: %v", err)
+					fatalError("Unable to delete %s from eBPF map %s: %v", ip, *group, err)
 				}
 
 			}
@@ -195,10 +202,11 @@ func main() {
 			if *group == "" {
 				fatalError("group member addtion -drop requires -group %s", *group)
 			}
-			// Get eBPF maps
-			groupMapName := bpf.GetMapByName(*group)
-			if groupMapName == nil {
-				fatalError("%s eBPF map not exist!", groupMapName)
+
+			path := bpfPath + *group
+			groupMapName, err := goebpf.NewMapFromExistingMapByPath(path)
+			if err != nil {
+				fatalError("Delete group member but eBPF map  %s not exist", *group)
 			}
 
 			// Populate eBPF map with IPv4 addresses to block
@@ -208,7 +216,7 @@ func main() {
 				fmt.Printf("%s\n", ip)
 				err := groupMapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
 				if err != nil {
-					fatalError("Unable to Insert into eBPF map: %v", err)
+					fatalError("Unable to Insert %s into eBPF map %s: %v", ip, *group, err)
 				}
 
 			}
@@ -227,11 +235,13 @@ func main() {
 			}
 
 			if *group != "" { // Add specific group members from file
-				// Get eBPF maps
-				groupMapName := bpf.GetMapByName(*group)
-				if groupMapName == nil {
-					fatalError("%s Add group member but eBPF map not exist!", *group)
+
+				path := bpfPath + *group
+				groupMapName, err := goebpf.NewMapFromExistingMapByPath(path)
+				if err != nil {
+					fatalError("Delete group member but eBPF map  %s not exist", *group)
 				}
+
 				// get slices of timed internet group member ips/cidrs
 				ips := cfg.Section(*group).Key("member").Strings(",")
 
@@ -254,10 +264,10 @@ func main() {
 					}
 					fmt.Printf("%s\n", name)
 
-					// Get eBPF maps
-					groupMapName := bpf.GetMapByName(name)
-					if groupMapName == nil {
-						fmt.Printf("Add group member but eBPF map not exists%s\n", name)
+					path := bpfPath + name
+					groupMapName, err := goebpf.NewMapFromExistingMapByPath(path)
+					if err != nil {
+						fmt.Printf("Add group member but eBPF map %s not exists\n", name)
 						continue
 					}
 
@@ -270,7 +280,7 @@ func main() {
 						fmt.Printf("%s\n", ip)
 						err := groupMapName.Insert(goebpf.CreateLPMtrieKey(ip), index)
 						if err != nil {
-							fatalError("Unable to Insert into eBPF map: %v", err)
+							fatalError("Unable to Insert %s into eBPF map %s: %v", ip, name, err)
 						}
 
 					}
@@ -281,36 +291,6 @@ func main() {
 		}
 	}
 
-	// Add CTRL+C handler
-	ctrlC := make(chan os.Signal, 1)
-	signal.Notify(ctrlC, os.Interrupt)
-
-	fmt.Println("XDP program successfully loaded and attached. Counters refreshed every second.")
-	fmt.Println("Press CTRL+C to stop.")
-	fmt.Println()
-
-	/*
-
-		// Print stat every second / exit on CTRL+C
-		ticker := time.NewTicker(1 * time.Second)
-		for {
-			select {
-			case <-ticker.C:
-				fmt.Println("IP                 DROPs")
-					for i := 0; i < len(ipList); i++ {
-						value, err := matches.LookupInt(i)
-						if err != nil {
-							fatalError("LookupInt failed: %v", err)
-						}
-						fmt.Printf("%18s    %d\n", ipList[i], value)
-					}
-					fmt.Println()
-			case <-ctrlC:
-				fmt.Println("\nDetaching program and exit")
-				return
-			}
-		}
-	*/
 }
 
 func fatalError(format string, args ...interface{}) {
