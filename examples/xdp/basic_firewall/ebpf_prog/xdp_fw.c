@@ -1,7 +1,7 @@
 // Copyright (c) 2019 Dropbox, Inc.
 // Full license can be found in the LICENSE file.
 
-// Basic XDP firewall (IPv4 blacklisting)
+// Basic XDP firewall (IPv4 Denylisting)
 //
 
 #include "bpf_helpers.h"
