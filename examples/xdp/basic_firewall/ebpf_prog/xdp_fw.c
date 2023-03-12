@@ -68,7 +68,7 @@ struct tcphdr {
 BPF_MAP_DEF(port_map) = {
     .map_type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(__u16),
-    .value_size = sizeof(__u8),
+    .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
     .persistent_path = "/sys/fs/bpf/port_map",
 };
@@ -256,37 +256,64 @@ int firewall(struct xdp_md *ctx) {
   //port_map key stored in host order, convert tcp port to host order
   __u16 port = bpf_ntohs(tcp->dest);
 
-  __u64 *ipDeny = 0;
-  __u64 *portDeny = 0;
+  __u32 *portDeny = 0;
 
   // Lookup TCP PORT and SRC IP in denylisted port and IPs
   if ( (portDeny = bpf_map_lookup_elem(&port_map, &port)) ) {
-	if ( (ipDeny = bpf_map_lookup_elem(&home_phones, &key)) )
+	__u32 *ipDeny = 0;
+	__sync_fetch_and_add(portDeny, 1);
+	if ( (ipDeny = bpf_map_lookup_elem(&home_phones, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_cc, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_cc, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&igdvs, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&igdvs, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_laptops, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_laptops, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_s_laptops, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_s_laptops, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&dvgs_laptops, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvgs_laptops, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_o_gmail, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_o_gmail, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&dvgs, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvgs, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&temp_ip_net, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&temp_ip_net, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&home_pcs, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&home_pcs, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&dvgs_cslab, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvgs_cslab, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_yearbook, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&dvbs_yearbook, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
+	}
   }
 
   return XDP_PASS;
