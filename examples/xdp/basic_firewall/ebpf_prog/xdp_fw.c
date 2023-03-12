@@ -68,7 +68,7 @@ struct tcphdr {
 BPF_MAP_DEF(port_map) = {
     .map_type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(__u16),
-    .value_size = sizeof(__u8),
+    .value_size = sizeof(__u32),
     .max_entries = MAX_RULES,
     .persistent_path = "/sys/fs/bpf/port_map",
 };
@@ -139,15 +139,20 @@ int firewall(struct xdp_md *ctx) {
   //port_map key stored in host order, convert tcp port to host order
   __u16 port = bpf_ntohs(tcp->dest);
 
-  __u64 *ipDeny = 0;
-  __u64 *portDeny = 0;
+  __u32 *portDeny;
 
   // Lookup TCP PORT and SRC IP in denylisted port and IPs
   if ( (portDeny = bpf_map_lookup_elem(&port_map, &port)) ) {
-	if ( (ipDeny = bpf_map_lookup_elem(&denylist1, &key)) )
+	__u32 *ipDeny;
+	__sync_fetch_and_add(portDeny, 1);
+	if ( (ipDeny = bpf_map_lookup_elem(&denylist1, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
-	else if ( (ipDeny = bpf_map_lookup_elem(&denylist2, &key)) )
+	}
+	else if ( (ipDeny = bpf_map_lookup_elem(&denylist2, &key)) ) {
+		__sync_fetch_and_add(ipDeny, 1);
 		return XDP_DROP;
+	}
   }
 
   return XDP_PASS;
